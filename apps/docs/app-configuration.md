@@ -21,7 +21,7 @@ export const config: Config = {
   disableSSO: DISABLE_SSO || false,
   logoPath: {
     fullLogo: "/static/images/logo-full-color(x2).png",
-    symbol: "/static/images/shelf-symbol.png",
+    symbol: "/static/images/assetflow-symbol.png",
   },
   faviconPath: "/static/favicon.ico",
   emailPrimaryColor: "#EF6820",
@@ -131,7 +131,7 @@ Defines the paths to your application logos. These are used throughout the appli
 **Default values:**
 
 - `fullLogo`: `"/static/images/logo-full-color(x2).png"`
-- `symbol`: `"/static/images/shelf-symbol.png"`
+- `symbol`: `"/static/images/assetflow-symbol.png"`
 
 ```ts
 // Custom logo paths

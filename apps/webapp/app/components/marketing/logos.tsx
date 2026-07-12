@@ -30,7 +30,7 @@ export const ShelfSidebarLogo = ({ minimized }: { minimized: boolean }) => {
   return (
     <>
       <img
-        src="/static/images/shelf-symbol.png"
+        src="/static/images/assetflow-symbol.png"
         alt="Shelf Logo"
         className="mx-1.5 inline h-[32px]"
       />
@@ -74,7 +74,7 @@ export const ShelfSymbolLogo = ({ className }: { className?: string }) => {
   }
 
   return (
-    <img src="/static/images/shelf-symbol.png" alt="logo" className={classes} />
+    <img src="/static/images/assetflow-symbol.png" alt="logo" className={classes} />
   );
 };
 

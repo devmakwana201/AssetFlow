@@ -19,7 +19,7 @@ export const config: Config = {
 
   logoPath: {
     fullLogo: "/static/images/logo-full-color(x2).png",
-    symbol: "/static/images/shelf-symbol.png",
+    symbol: "/static/images/assetflow-symbol.png",
   },
   faviconPath: "/static/favicon.ico",
   emailPrimaryColor: "#EF6820",
