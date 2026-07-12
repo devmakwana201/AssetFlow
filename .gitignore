@@ -1,0 +1,54 @@
+# ─── Environment variables (NEVER commit these) ───────────────────────────────
+.env
+.env.local
+.env.staging
+.env.production
+.env.*.local
+
+# ─── Node ─────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Build outputs ────────────────────────────────────────────────────────────
+build/
+dist/
+.cache/
+.turbo/
+*.tsbuildinfo
+
+# ─── Remix / React Router ────────────────────────────────────────────────────
+apps/webapp/.react-router/
+apps/webapp/build/
+
+# ─── Prisma generated client ──────────────────────────────────────────────────
+packages/database/node_modules/
+apps/webapp/node_modules/
+
+# ─── OS files ────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── Editor ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Test coverage ───────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ─── Playwright ──────────────────────────────────────────────────────────────
+playwright-report/
+test-results/
+
+# ─── Misc ────────────────────────────────────────────────────────────────────
+*.local
+.eslintcache
+image/
