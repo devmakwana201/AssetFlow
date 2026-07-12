@@ -1,0 +1,7 @@
+{
+  "extends": "@assetflow/typescript-config/base.json",
+  "compilerOptions": {
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*.ts"]
+}
