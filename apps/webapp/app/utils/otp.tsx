@@ -28,7 +28,7 @@ export const OTP_PAGE_MAP: OtpPageData = {
     title: "Create an account",
     SubHeading: () => (
       <SubHeading className="-mt-4 text-center">
-        Start your journey with Shelf.
+        Start your journey with AssetFlow.
       </SubHeading>
     ),
     buttonTitle: "Create Account",

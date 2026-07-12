@@ -15,10 +15,20 @@ import { Button } from "~/components/shared/button";
 import { config } from "~/config/assetflow.config";
 import { useSearchParams } from "~/hooks/search-params";
 import { useAutoFocus } from "~/hooks/use-auto-focus";
+import { getSupabaseAdmin } from "~/integrations/supabase/client";
 import { ContinueWithEmailForm } from "~/modules/auth/components/continue-with-email-form";
-import { signUpWithEmailPass } from "~/modules/auth/service.server";
-import { findUserByEmail } from "~/modules/user/service.server";
+import {
+  signUpWithEmailPass,
+  signInWithEmail,
+} from "~/modules/auth/service.server";
+import {
+  getSelectedOrganization,
+  setSelectedOrganizationIdCookie,
+} from "~/modules/organization/context.server";
+import { findUserByEmail, createUser } from "~/modules/user/service.server";
+import { generateUniqueUsername } from "~/modules/user/utils.server";
 import { appendToMetaTitle } from "~/utils/append-to-meta-title";
+import { setCookie } from "~/utils/cookies.server";
 import {
   ShelfError,
   isZodValidationError,
@@ -31,13 +41,14 @@ import {
   error,
   getActionMethod,
   parseData,
+  safeRedirect,
 } from "~/utils/http.server";
 import { validEmail } from "~/utils/misc";
 import { validateNonSSOSignup } from "~/utils/sso.server";
 
 export function loader({ context }: LoaderFunctionArgs) {
   const title = "Create an account";
-  const subHeading = "Start your journey with Shelf";
+  const subHeading = "Start your journey with AssetFlow";
   const { disableSignup } = config;
 
   try {
@@ -89,16 +100,16 @@ const JoinFormSchema = z
     }
   });
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ context, request }: ActionFunctionArgs) {
   try {
     const method = getActionMethod(request);
 
     switch (getActionMethod(request)) {
       case "POST": {
-        const { email, password } = parseData(
+        const { email, password, redirectTo } = parseData(
           await request.formData(),
           JoinFormSchema,
-          { shouldBeCaptured: false }
+          { shouldBeCaptured: false },
         );
         // Block signup if domain uses SSO
         await validateNonSSOSignup(email);
@@ -108,22 +119,50 @@ export async function action({ request }: ActionFunctionArgs) {
         if (existingUser) {
           throw new ShelfError({
             cause: null,
-            message: "User with this Email already exits, login instead",
-            additionalData: {
-              email,
-            },
+            message: "User with this Email already exists, login instead",
+            additionalData: { email },
             label: "User onboarding",
             shouldBeCaptured: false,
             status: 409,
           });
         }
 
-        // Sign up with the provided email and password
-        await signUpWithEmailPass(email, password);
+        // Create the Supabase auth user
+        const supabaseUser = await signUpWithEmailPass(email, password);
 
-        return redirect(
-          `/otp?email=${encodeURIComponent(email)}&mode=confirm_signup`
-        );
+        // Auto-confirm email so users can sign in immediately
+        await getSupabaseAdmin().auth.admin.updateUserById(supabaseUser.id, {
+          email_confirm: true,
+        });
+
+        // Establish an auth session for the new user
+        const authSession = await signInWithEmail(email, password);
+
+        if (!authSession) {
+          throw new ShelfError({
+            cause: null,
+            message: "Could not sign in after signup. Please try logging in.",
+            label: "User onboarding",
+            shouldBeCaptured: false,
+          });
+        }
+
+        // Provision user profile and personal organization
+        const username = await generateUniqueUsername(authSession.email);
+        await createUser({ ...authSession, username });
+
+        const { organizationId } = await getSelectedOrganization({
+          userId: authSession.userId,
+          request,
+        });
+
+        context.setSession(authSession);
+
+        return redirect(safeRedirect(redirectTo || "/assets"), {
+          headers: [
+            setCookie(await setSelectedOrganizationIdCookie(organizationId)),
+          ],
+        });
       }
     }
 
@@ -132,7 +171,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const reason = makeShelfError(
       cause,
       undefined,
-      isZodValidationError(cause)
+      isZodValidationError(cause),
     );
     return data(error(reason), { status: reason.status });
   }

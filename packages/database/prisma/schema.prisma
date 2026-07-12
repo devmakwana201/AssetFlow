@@ -250,6 +250,10 @@ model Asset {
   assetKits      AssetKit[]
   assetLocations AssetLocation[]
 
+  // AssetFlow relations
+  maintenanceRequests MaintenanceRequest[]
+  transferRequests    TransferRequest[]
+
   // Per-asset override: when an org has multiple linked Barcodes (only possible
   // with the barcode add-on), this picks the specific Barcode to display in
   // list views. Null = use the workspace `qrIdDisplayPreference` default.
@@ -292,6 +296,13 @@ enum AssetStatus {
   AVAILABLE
   IN_CUSTODY
   CHECKED_OUT
+  // AssetFlow hackathon lifecycle states
+  ALLOCATED           // Formally allocated to employee/dept
+  UNDER_MAINTENANCE   // Maintenance request approved, repair in progress
+  LOST                // Confirmed lost via audit
+  RETIRED             // End-of-life, no longer in service
+  DISPOSED            // Physically disposed/discarded
+  RESERVED            // Reserved for future allocation
 }
 
 /** Determines how an asset is tracked throughout the system. Immutable after creation. */
@@ -832,6 +843,10 @@ model TeamMember {
   userId          String?
   kitCustodies    KitCustody[]
 
+  // Department link (AssetFlow)
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departmentId String?
+
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   deletedAt       DateTime?
@@ -844,11 +859,20 @@ model TeamMember {
   alwaysNotifyBookingSettings BookingSettings[] @relation("BookingSettingsAlwaysNotify")
   bookingNotifications        Booking[]         @relation("BookingNotificationRecipients")
 
+  // AssetFlow relations
+  maintenanceRequests MaintenanceRequest[] @relation("MaintenanceReporter")
+  assignedMaintenance MaintenanceRequest[] @relation("MaintenanceTechnician")
+  transfersFrom       TransferRequest[]    @relation("TransferFrom")
+  transfersTo         TransferRequest[]    @relation("TransferTo")
+  transfersApproved   TransferRequest[]    @relation("TransferApprover")
+  headOfDepartments   Department[]         @relation("DeptHead")
+
   // Special GIN index for optimization of simple search queries
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
   // Indexes for foreign keys
   @@index([organizationId])
   @@index([userId])
+  @@index([departmentId])
 }
 
 model Custody {
@@ -901,7 +925,8 @@ model Organization {
   userId   String
   currency Currency @default(USD)
 
-  members TeamMember[]
+  members     TeamMember[]
+  departments Department[]
   assets  Asset[]
   assetKits AssetKit[]
   assetLocations AssetLocation[]
@@ -958,6 +983,10 @@ model Organization {
 
   auditSessions      AuditSession[]
   auditImages        AuditImage[]
+
+  // AssetFlow
+  maintenanceRequests MaintenanceRequest[]
+  transferRequests    TransferRequest[]
 
   usersWithLastSelected User[] @relation("lastSelectedOrg")
   roleChangeLogs      RoleChangeLog[]
@@ -2354,4 +2383,137 @@ enum ActivityAction {
 
   // Organization (workspace-level configuration changes)
   ORGANIZATION_QR_ID_DISPLAY_PREFERENCE_CHANGED
+
+  // Department
+  DEPARTMENT_CREATED
+  DEPARTMENT_UPDATED
+
+  // Maintenance
+  MAINTENANCE_REQUEST_CREATED
+  MAINTENANCE_REQUEST_APPROVED
+  MAINTENANCE_REQUEST_REJECTED
+  MAINTENANCE_TECHNICIAN_ASSIGNED
+  MAINTENANCE_IN_PROGRESS
+  MAINTENANCE_RESOLVED
+
+  // Transfer
+  TRANSFER_REQUEST_CREATED
+  TRANSFER_REQUEST_APPROVED
+  TRANSFER_REQUEST_REJECTED
+  TRANSFER_COMPLETED
+}
+
+// ─── AssetFlow: Department ─────────────────────────────────────────────────────
+
+model Department {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  headMember   TeamMember? @relation("DeptHead", fields: [headMemberId], references: [id], onDelete: SetNull)
+  headMemberId String?
+
+  members             TeamMember[]
+  maintenanceRequests MaintenanceRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([headMemberId])
+}
+
+// ─── AssetFlow: Maintenance ─────────────────────────────────────────────────────
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MaintenanceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  TECHNICIAN_ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+}
+
+model MaintenanceRequest {
+  id          String              @id @default(cuid())
+  title       String
+  description String
+  priority    MaintenancePriority @default(MEDIUM)
+  status      MaintenanceStatus   @default(PENDING)
+
+  photoUrl        String?
+  reviewNotes     String?
+  resolutionNotes String?
+
+  asset          Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetId        String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  department     Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departmentId   String?
+  reporter       TeamMember   @relation("MaintenanceReporter", fields: [reporterId], references: [id])
+  reporterId     String
+  technician     TeamMember?  @relation("MaintenanceTechnician", fields: [technicianId], references: [id])
+  technicianId   String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  approvedAt DateTime?
+  resolvedAt DateTime?
+
+  @@index([organizationId])
+  @@index([assetId])
+  @@index([reporterId])
+  @@index([technicianId])
+  @@index([departmentId])
+  @@index([status, organizationId])
+}
+
+// ─── AssetFlow: Transfer Request ───────────────────────────────────────────────
+
+enum TransferStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+model TransferRequest {
+  id          String         @id @default(cuid())
+  status      TransferStatus @default(PENDING)
+  reason      String?
+  reviewNotes String?
+
+  asset          Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetId        String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  fromMember     TeamMember   @relation("TransferFrom", fields: [fromMemberId], references: [id])
+  fromMemberId   String
+  toMember       TeamMember   @relation("TransferTo", fields: [toMemberId], references: [id])
+  toMemberId     String
+  approver       TeamMember?  @relation("TransferApprover", fields: [approverId], references: [id])
+  approverId     String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([organizationId])
+  @@index([assetId])
+  @@index([fromMemberId])
+  @@index([toMemberId])
+  @@index([status, organizationId])
 }

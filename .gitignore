@@ -52,3 +52,4 @@ test-results/
 *.local
 .eslintcache
 image/
+.npmrc

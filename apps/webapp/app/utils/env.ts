@@ -88,7 +88,7 @@ type EnvOptions = {
 
 export function getEnv<K extends keyof NodeJS.ProcessEnv>(
   name: K,
-  { isRequired = true, isSecret = true, allowEmpty = false }: EnvOptions = {}
+  { isRequired = true, isSecret = true, allowEmpty = false }: EnvOptions = {},
 ): NodeJS.ProcessEnv[K] {
   if (isBrowser && isSecret) return "";
 
@@ -174,14 +174,20 @@ export const STRIPE_SECRET_KEY = getEnv("STRIPE_SECRET_KEY", {
 });
 export const STRIPE_WEBHOOK_ENDPOINT_SECRET = getEnv(
   "STRIPE_WEBHOOK_ENDPOINT_SECRET",
-  { isSecret: true, isRequired: false }
+  { isSecret: true, isRequired: false },
 );
-export const SMTP_PWD = getEnv("SMTP_PWD", { allowEmpty: true });
-export const SMTP_HOST = getEnv("SMTP_HOST");
+export const SMTP_PWD = getEnv("SMTP_PWD", {
+  allowEmpty: true,
+  isRequired: false,
+});
+export const SMTP_HOST = getEnv("SMTP_HOST", { isRequired: false });
 export const SMTP_PORT = getEnv("SMTP_PORT", {
   isRequired: false,
 });
-export const SMTP_USER = getEnv("SMTP_USER", { allowEmpty: true });
+export const SMTP_USER = getEnv("SMTP_USER", {
+  allowEmpty: true,
+  isRequired: false,
+});
 export const SMTP_FROM = getEnv("SMTP_FROM", {
   isRequired: false,
 });
@@ -245,6 +251,7 @@ export const SUPABASE_ANON_PUBLIC = getEnv("SUPABASE_ANON_PUBLIC", {
 });
 export const MAPTILER_TOKEN = getEnv("MAPTILER_TOKEN", {
   isSecret: false,
+  isRequired: false,
 });
 export const CRISP_WEBSITE_ID = getEnv("CRISP_WEBSITE_ID", {
   isSecret: false,
@@ -259,7 +266,7 @@ export const CLOUDFLARE_WEB_ANALYTICS_TOKEN = getEnv(
   {
     isSecret: false,
     isRequired: false,
-  }
+  },
 );
 export const FORMBRICKS_ENV_ID = getEnv("FORMBRICKS_ENV_ID", {
   isSecret: false,
